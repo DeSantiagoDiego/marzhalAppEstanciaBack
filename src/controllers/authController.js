@@ -295,7 +295,7 @@ router.post('/login', async(req, res) => {
         tokenSession: token,
         tokenDateExpiry: dateExpiry
     });
-    //Hola martin
+    //Hola martin x2
     await session.save();
     //res.status(200).json({ auth });
     console.log(token);
