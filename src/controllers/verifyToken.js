@@ -18,7 +18,7 @@ async function verifyToken(req, res, next) {
             } else {
                 console.log('Token expirado');
                 await tokenExpiry.delete();
-                return res.status(401).send({ auth: false, message: 'Token expirado' });
+                return res.status(402).send({ auth: false, message: 'Token expirado' });
             }
         }
     }
@@ -28,5 +28,7 @@ async function verifyToken(req, res, next) {
     req.userId = decoded.id;
     next();
 }
+
+
 
 module.exports = verifyToken;

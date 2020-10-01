@@ -1,18 +1,20 @@
-const {Schema, model}= require('mongoose');
+const { Schema, model } = require('mongoose');
 const bcrypt = require('bcryptjs');
 
 const userSchema = new Schema({
     username: String,
     email: String,
-    password: String
+    password: String,
+    isVerified: { type: Boolean, default: false },
+    changePassword: { type: Boolean, default: false }
 });
 
-userSchema.methods.encryptPassword = async (password) => {
+userSchema.methods.encryptPassword = async(password) => {
     const salt = await bcrypt.genSalt(10);
     return bcrypt.hash(password, salt);
 };
 
-userSchema.methods.comparePassword = async function (password) {
+userSchema.methods.comparePassword = async function(password) {
     return bcrypt.compare(password, this.password);
 };
 
