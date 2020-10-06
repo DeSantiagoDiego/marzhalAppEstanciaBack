@@ -277,7 +277,7 @@ router.post('/login', async(req, res) => {
         return res.json("Contraseña incorrecta");
     }
     const token = jwt.sign({ id: user._id }, config.secret, {
-        expiresIn: 120
+        expiresIn: 86400
             //expiresIn: 86400
     });
     var expirationDate = new Date();
@@ -285,7 +285,7 @@ router.post('/login', async(req, res) => {
     console.log('Tiempo antes: ' + expirationDate);
     console.log('Tiempo antes: ' + expirationDate.getTime());
     var dateToday = expirationDate.getTime();
-    exp.setSeconds(exp.getSeconds() + 120);
+    exp.setSeconds(exp.getSeconds() + 86400);
     console.log('Tiempo ahora: ' + exp);
     var dateExpiry = exp.getTime();
     console.log('Tiempo ahora: ' + exp.getTime());
@@ -357,5 +357,18 @@ router.post('/verifyChangePassword', async(req, res) => {
         return res.json({ message: "Contraseña cambiada con exito", number: 1 })
     }
     return res.json({ message: 'Autorizacion no asignada, verifique su correo electronico y vuela a intentarlo' })
+});
+
+router.post('/deleteToken', async(req, res) => {
+    const { tokenSession } = req.body;
+    //Verifica si el toquen existente está en la BBD
+    const tokenExpiry = await Sessions.findOne({ tokenSession: tokenSession });
+    if (!tokenExpiry) {
+        return res.json({ auth: false, message: 'No token provided' });
+    } else {
+        console.log('Token expirado');
+        await tokenExpiry.delete();
+        return res.json({ auth: false, message: 'Session Expirada' });
+    }
 });
 module.exports = router;
