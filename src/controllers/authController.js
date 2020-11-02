@@ -604,9 +604,9 @@ router.post('/userSendByAlert', async(req, res) => {
     if (!user) {
         return res.json("El email no existe en la base de datos.")
     }
-    rand = Math.floor((Math.random() * 100) + 54);
-    host = "localhost:3000";
-    link = "http://" + host + "/api/auth/changePassword?id=" + rand;
+    //rand = Math.floor((Math.random() * 100) + 54);
+    //host = "localhost:3000";
+    //link = "http://" + host + "/api/auth/changePassword?id=" + rand;
     mailOptions = {
         to: 'marzhalid@gmail.com',
         subject: "ALERTA - " + user.email,
@@ -634,9 +634,9 @@ router.post('/userSendToAlert', async(req, res) => {
     if (!user) {
         return res.json("El email no existe en la base de datos.")
     }
-    rand = Math.floor((Math.random() * 100) + 54);
-    host = "localhost:3000";
-    link = "http://" + host + "/api/auth/changePassword?id=" + rand;
+    //rand = Math.floor((Math.random() * 100) + 54);
+    //host = "localhost:3000";
+    //link = "http://" + host + "/api/auth/changePassword?id=" + rand;
     mailOptions = {
         to: user.email,
         subject: "ALERTA ENVIADA - " + user.email,
