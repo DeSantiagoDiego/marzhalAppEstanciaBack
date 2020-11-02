@@ -4,13 +4,16 @@ const router = Router();
 var nodemailer = require("nodemailer");
 const User = require('../models/User');
 const Sessions = require('../models/Sessions');
-const verifyToken = require('./verifyToken')
+const Blocks = require('../models/Blocks');
+const Passwords = require('../models/Passwords');
+const verifyToken = require('./verifyToken');
 
 const jwt = require('jsonwebtoken');
 const config = require('../config');
 const app = require('../app');
-
 router.get('/', function(req, res) {
+    //var fullUrl = req.protocol + '://' + req.get('host') + req.originalUrl;
+    //res.json('Bienvenido : ' +fullUrl);
     res.json('Bienvenido');
 });
 
@@ -51,7 +54,8 @@ router.get('/send', function(req, res) {
 //Funcion para enviar correo de verificacion una vez registrada la cuenta
 function sendEmail(req, res) {
     rand = Math.floor((Math.random() * 100) + 54);
-    host = "localhost:3000";
+    //host = "localhost:3000";
+    console.log("Esto deberia funcionar: " + host);
     link = "http://" + host + "/api/auth/verify?id=" + rand;
     console.log(link);
     mailOptions = {
@@ -63,7 +67,7 @@ function sendEmail(req, res) {
     smtpTransport.sendMail(mailOptions, function(error, response) {
         if (error) {
             console.log(error);
-            res.end("error");
+            return res.json({ message: "Registro exitoso, hubo un problema al momento de enviar el correo de verificacion." });
         } else {
             console.log("Mensaje enviado: " + response.message);
             res.end("enviado");
@@ -71,10 +75,17 @@ function sendEmail(req, res) {
     });
 };
 //Peticion para enviar correo de cambio de contraseña
-router.post('/sendChangePass', function(req, res) {
+router.post('/sendChangePass', async(req, res) => {
+    const user = await User.findOne({ email: req.body.to })
+    if (!user) {
+        //El email no existe en la base de datos
+        return res.json({ message: 'Se ha enviado un correo a <strong> ' + req.body.to + '</strong>, verifiquelo para confirmar el cambio de contraseña', number: 2 })
+    }
     const { to } = req.body;
+    host = req.body.hostSend;
+    console.log("Esto deberia funcionar: " + host);
     rand = Math.floor((Math.random() * 100) + 54);
-    host = "localhost:3000";
+    //host = "localhost:3000";
     link = "http://" + host + "/api/auth/changePassword?id=" + rand;
     mailOptions = {
         to: to,
@@ -85,11 +96,11 @@ router.post('/sendChangePass', function(req, res) {
     smtpTransport.sendMail(mailOptions, function(error, response) {
         if (error) {
             console.log(error);
-            res.status(500).send('error');
+            return res.json({ message: 'Hubo un problema al enviar el correo, intentelo de nuevo', number: 3 });
         } else {
             console.log("Mensaje enviado: " + response.message);
             //res.end("Enviado");
-            return res.status(200).json({ message: 'Registro existoso, se ha enviado un correo a tu direccion para continuar con la verificacion', number: 1 });
+            return res.status(200).json({ message: 'Se ha enviado un correo a <strong> ' + to + '</strong>, verifiquelo para confirmar el cambio de contraseña', number: 1 });
         }
     });
 });
@@ -234,7 +245,7 @@ async function signup(req, res) {
 //Peticion para verificar el registro de usuario
 router.post('/prueba', async(req, res) => {
     //* Recibimos datos
-    const { username, email, password } = req.body;
+    const { username, email, password, hostSend } = req.body;
     //* Creamos un nuevo usuario
     const user = new User({
         username,
@@ -244,6 +255,8 @@ router.post('/prueba', async(req, res) => {
     User.findOne({ email: email }).exec((error, exists) => {
         if (!error) {
             if (exists == null) {
+                console.log(hostSend);
+                host = hostSend;
                 signup(user, res);
             } else {
                 res.json({ message: 'Correo ocupado, ingrese otro e intentelo denuevo.' });
@@ -275,6 +288,9 @@ router.post('/login', async(req, res) => {
     if (!validPassword) {
         //return res.status(401).send({ auth: false, token: null });
         return res.json("Contraseña incorrecta");
+    }
+    if (user.isVerified == false) {
+        return res.json("Esta cuenta no está verificada")
     }
     const token = jwt.sign({ id: user._id }, config.secret, {
         expiresIn: 86400
@@ -348,7 +364,8 @@ router.post('/verifyChangePassword', async(req, res) => {
     const user = await User.findOne({ email: req.body.email })
     const password = req.body.password;
     if (!user) {
-        return res.json({ message: "El email no existe en la base de datos." })
+        //El email no existe en la base de datos
+        return res.json({ message: "Autorizacion no asignada, verifique su correo electronico y vuelva a intentarlo.", number: 2 })
     }
     if (user.changePassword == true) {
         user.password = await user.encryptPassword(password)
@@ -356,7 +373,7 @@ router.post('/verifyChangePassword', async(req, res) => {
         await user.save();
         return res.json({ message: "Contraseña cambiada con exito", number: 1 })
     }
-    return res.json({ message: 'Autorizacion no asignada, verifique su correo electronico y vuela a intentarlo' })
+    return res.json({ message: 'Autorizacion no asignada, verifique su correo electronico y vuelva a intentarlo.' })
 });
 
 router.post('/deleteToken', async(req, res) => {
@@ -370,5 +387,271 @@ router.post('/deleteToken', async(req, res) => {
         await tokenExpiry.delete();
         return res.json({ auth: false, message: 'Session Expirada' });
     }
+});
+
+//Peticion para enviar correo de alerta a usuario de posible intruso
+router.post('/userTryFailed', async(req, res) => {
+    const user = await User.findOne({ email: req.body.to })
+    if (!user) {
+        return res.json({ message: "El email no existe en la base de datos." })
+    }
+    console.log(req.body.to);
+    mailOptions = {
+        to: req.body.to,
+        subject: "Alerta de cuenta",
+        html: "Hola,<br> Alguien ha intendo ingresar a tu cuenta numerosas veces, te recomendamos verificarlo y cambiar la contraseña<br>"
+    }
+    console.log(mailOptions);
+    smtpTransport.sendMail(mailOptions, function(error, response) {
+        if (error) {
+            console.log(error);
+            res.status(500).send('error');
+        } else {
+            console.log("Mensaje enviado: " + response.message);
+            //res.end("Enviado");
+            return res.status(200).json({ message: 'Alerta enviada' });
+        }
+    });
+});
+
+//Peticion de prueba para ver los bloqueos
+router.post('/block', async(req, res) => {
+    Blocks.find().exec((error, blocks) => {
+        if (!error) {
+            res.status(200).json(blocks);
+        } else {
+            res.status(500).json(error);
+        }
+    });
+});
+
+//Peticion para verificar si el login está bloqueado
+router.get('/checkLogin', async(req, res) => {
+    Blocks.find().exec((error, blocks) => {
+        if (!error) {
+            if (blocks.length === 1 & blocks[0].time === null) {
+                //Login No Bloqueado
+                res.json({ number: 1 });
+            } else {
+                res.json({ number: 2, time: blocks[0].time });
+            }
+            //res.status(200).json(blocks);
+        } else {
+            res.status(500).json(error);
+        }
+    });
+});
+
+//Peticion para bloquear el login
+router.post('/blockLogin', async(req, res) => {
+    Blocks.find().exec((error, blocks) => {
+        if (!error) {
+            //console.log(blocks.length);
+            if (blocks.length == 0) {
+                const block = new Blocks({
+                    time: req.body.time
+                });
+                block.save();
+                res.json(block.time);
+            } else {
+                blocks[0].time = req.body.time
+                res.json(blocks[0])
+                blocks[0].save();
+            }
+        } else {
+            res.status(500).json(error);
+        }
+    });
+    /*const block = new Blocks({
+        time: req.body.time
+    });
+    await block.save();
+    */
+});
+
+//Peticion para generar contraseña (Crear)
+router.post('/createNewPassword', async(req, res) => {
+    var alfabeto = ['A', 'a', 'B', 'b', 'C', 'c', 'D', 'd', 'E', 'e', 'F', 'f', 'G', 'g', 'H', 'h', 'I', 'i', 'J', 'j', 'K', 'k', 'L', 'l', 'M', 'm', 'N', 'n', 'Ñ', 'ñ', 'O', 'o', 'P', 'p', 'Q', 'q', 'R', 'r', 'S', 's', 'T', 't', 'U', 'u', 'V', 'v', 'W', 'w', 'X', 'x', 'Y', 'y', 'Z', 'z'];
+    var numeros = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+    var caracteresEspeciales = ['_', '-', '@', '/', '.', ',', '{', '}', '[', ']', '!', '#', '$', '%', '&', '(', ')', '=', '¡', '?', '¿'];
+    var contraseñaValida = false;
+    const decoded = await jwt.verify(req.body.token, config.secret);
+    req.userId = decoded.id;
+    console.log(req.userId);
+    var nuevoDigitosContraseña = req.body.digits;
+    var seleccionAleatoria;
+    var seleccionElementoAleatoria;
+    var contraseñaFinal = "";
+    //res.json(a.length);
+    //console.log(contraseñaFinal.length);
+    //console.log(alfabeto[0], alfabeto[53]);
+    //console.log(numeros[0], numeros[9]);
+    //console.log(caracteresEspeciales[0], caracteresEspeciales[20]);
+    do {
+        seleccionElementoAleatoria = Math.floor(Math.random() * 3);
+        console.log(seleccionElementoAleatoria);
+        if (seleccionElementoAleatoria == 0) {
+            seleccionAleatoria = Math.floor(Math.random() * 54);
+            //console.log(seleccionAleatoria);
+            contraseñaFinal = contraseñaFinal + alfabeto[seleccionAleatoria];
+            console.log('Abecedario: ' + contraseñaFinal);
+        }
+        if (seleccionElementoAleatoria == 1) {
+            seleccionAleatoria = Math.floor(Math.random() * 10);
+            contraseñaFinal = contraseñaFinal + numeros[seleccionAleatoria];
+            console.log('Numero: ' + contraseñaFinal);
+        }
+        if (seleccionElementoAleatoria == 2) {
+            seleccionAleatoria = Math.floor(Math.random() * 21);
+            contraseñaFinal = contraseñaFinal + caracteresEspeciales[seleccionAleatoria];
+            console.log('Especial: ' + contraseñaFinal);
+        }
+
+        //nuevoDigitosContraseña = nuevoDigitosContraseña - 1;
+        //console.log(nuevoDigitosContraseña);
+    } /*while (nuevoDigitosContraseña != 0);*/ while (contraseñaFinal.length != nuevoDigitosContraseña);
+    console.log('Contraseña Final: ' + contraseñaFinal);
+
+    const checkPasswordName = await Passwords.findOne({ userId: req.userId, namePassword: req.body.name })
+    if (checkPasswordName) {
+        return res.json({ message: "Ya existe una contraseña con el nombre " + req.body.name + ", verifiquelo y vuelva a intentarlo." })
+    }
+
+    const password = new Passwords({
+        userId: req.userId,
+        namePassword: req.body.name,
+        password: contraseñaFinal
+    });
+    //Hola martin x2
+    await password.save();
+    console.log(password);
+    res.json({ message: "Contraseña guardada!" });
+    //res.json('Funciono yey');
+});
+
+//Peticion para editar una contraseña (Actualizar)
+router.post('/editPassword', async(req, res) => {
+    const decoded = await jwt.verify(req.body.token, config.secret);
+    req.userId = decoded.id;
+    console.log(req.userId);
+    var messageCheck = ""
+    const checkPassword = await Passwords.findOne({ _id: req.body.idPassword })
+    if (checkPassword) {
+        if (checkPassword.namePassword != req.body.newName) {
+            const checkNameExists = await Passwords.findOne({ userId: req.userId, namePassword: req.body.newName })
+            if (checkNameExists) {
+                return res.json({ message: "Ya existe una contraseña con el nombre " + req.body.newName + ", verifiquelo y vuelva a intentarlo." })
+            }
+        } else {
+            //return res.json({ message: "Sin cambios en el nombre" });
+            messageCheck = messageCheck + "Sin cambios en el nombre";
+        }
+        if (checkPassword.password != req.body.newPassword) {} else {
+            //return res.json({ message: "Sin cambios en la contraseña"});
+            messageCheck = messageCheck + "Sin cambios en la contraseña";
+        }
+    }
+    /*
+    const checkNameExists = await Passwords.findOne({ userId: req.body.user_id, namePassword: req.body.newName })
+    if (checkNameExists) {
+        return res.json({ message: "Ya existe una contraseña con el nombre " + req.body.newName + ", verifiquelo y vuelva a intentarlo." })
+    }
+    const checkPasswordExists = await Passwords.findOne({ userId: req.body.user_id, password: req.body.newPassword })
+    if (checkPasswordExists) {
+        return res.json({ message: "Ya existe esta contraseña generada en su cuenta, verifiquelo y vuelva a intentarlo." })
+    }
+    */
+    const editPassword = await Passwords.findOne({ _id: req.body.idPassword })
+    if (!editPassword) {
+        return res.json({ message: "Hubo un problema al momento de buscar la contraseña" });
+    }
+    editPassword.namePassword = req.body.newName;
+    editPassword.password = req.body.newPassword;
+    await editPassword.save();
+    res.json({ message: "Contraseña actualizada!", messageCheck, editPassword });
+});
+
+//Peticion para traer las contraseñas de un usuario (Leer)
+router.post('/readPassword', async(req, res) => {
+    const decoded = await jwt.verify(req.body.token, config.secret);
+    req.userId = decoded.id;
+    console.log(req.userId);
+    const userPasswords = await Passwords.find({ userId: req.userId })
+    if (!userPasswords | userPasswords.length == 0) {
+        return res.json({ message: "Este usuario no ha generado contraseñas" });
+    }
+    res.json(userPasswords);
+});
+
+//Peticion para borrar una contraseña (Eliminar)
+router.post('/deletePassword', async(req, res) => {
+    const deletePassword = await Passwords.findOne({ _id: req.body.idPassword })
+    if (!deletePassword) {
+        return res.json({ message: "Hubo un problema al momento de buscar la contraseña" });
+    }
+    await deletePassword.delete();
+    res.json({ message: "Contraseña eliminada!" });
+});
+
+
+//Peticion para enviar calerta por usuario a MarzhalId
+router.post('/userSendByAlert', async(req, res) => {
+    console.log('MensajeAlerta: ' + req.body.message);
+    const decoded = await jwt.verify(req.body.token, config.secret);
+    req.userId = decoded.id;
+    //req.userId = req.body.id;
+    const user = await User.findOne({ _id: req.userId })
+    if (!user) {
+        return res.json("El email no existe en la base de datos.")
+    }
+    rand = Math.floor((Math.random() * 100) + 54);
+    host = "localhost:3000";
+    link = "http://" + host + "/api/auth/changePassword?id=" + rand;
+    mailOptions = {
+        to: 'marzhalid@gmail.com',
+        subject: "ALERTA - " + user.email,
+        html: "El usuario con el correo: " + user.email + " dice:<br><i>" + req.body.message + ".</i><br>"
+    }
+    console.log(mailOptions);
+    smtpTransport.sendMail(mailOptions, function(error, response) {
+        if (error) {
+            console.log(error);
+            return res.json({ header: 'ERROR!', message: 'Hubo un problema al enviar la alerta, intentelo de nuevo.', number: 2 });
+        } else {
+            console.log("Mensaje enviado: " + response.message);
+            //res.end("Enviado");
+            return res.status(200).json({ header: 'ALERTA ENVIADA', message: 'En breve recibirás apoyo por parte de nuestro equipo.', number: 1 });
+        }
+    });
+});
+
+router.post('/userSendToAlert', async(req, res) => {
+    console.log('MensajeAlerta: ' + req.body.message);
+    const decoded = await jwt.verify(req.body.token, config.secret);
+    req.userId = decoded.id;
+    //req.userId = req.body.id;
+    const user = await User.findOne({ _id: req.userId })
+    if (!user) {
+        return res.json("El email no existe en la base de datos.")
+    }
+    rand = Math.floor((Math.random() * 100) + 54);
+    host = "localhost:3000";
+    link = "http://" + host + "/api/auth/changePassword?id=" + rand;
+    mailOptions = {
+        to: user.email,
+        subject: "ALERTA ENVIADA - " + user.email,
+        html: "Se ha enviado su alerta con el mensaje: <br><i>" + req.body.message + ".</i><br> <br>En breve recibirás apoyo por parte de nuestro equipo.<br>"
+    }
+    console.log(mailOptions);
+    smtpTransport.sendMail(mailOptions, function(error, response) {
+        if (error) {
+            console.log(error);
+            return res.json({ header: 'ERROR!', message: 'Hubo un problema al enviar la alerta, intentelo de nuevo.', number: 2 });
+        } else {
+            console.log("Mensaje enviado: " + response.message);
+            //res.end("Enviado");
+            return res.status(200).json({ header: 'ALERTA ENVIADA', message: 'En breve recibirás apoyo por parte de nuestro equipo.', number: 1 });
+        }
+    });
 });
 module.exports = router;

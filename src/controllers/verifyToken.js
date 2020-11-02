@@ -25,7 +25,9 @@ async function verifyToken(req, res, next) {
     // console.log(token);
     // Tokenreq.userId = decoded.id;
     const decoded = await jwt.verify(token, config.secret);
+
     req.userId = decoded.id;
+    console.log("IdUsuario: " + req.userId);
     next();
 }
 
