@@ -66,14 +66,23 @@ function sendEmail(req, res) {
     console.log(mailOptions);
     smtpTransport.sendMail(mailOptions, function(error, response) {
         if (error) {
-            console.log(error);
-            return res.json({ message: "Registro exitoso, hubo un problema al momento de enviar el correo de verificacion." });
+            registerError(req, res);
+            return res.json({ message: "Hubo un problema al momento de enviar el correo de verificacion, intentelo denuevo." });
         } else {
             console.log("Mensaje enviado: " + response.message);
-            res.end("enviado");
+            //res.end("enviado");
+            return res.status(200).json({ message: 'Registro exitoso, se ha enviado un correo a tu direccion de correo electrónico para continuar con la verificacion', number: 1 });
         }
     });
 };
+
+async function registerError(req, res) {
+    const user = await User.findOne({ email: emailUser })
+    if (user) {
+        await user.delete();
+        console.log(emailUser + " eliminado.");
+    }
+}
 //Peticion para enviar correo de cambio de contraseña
 router.post('/sendChangePass', async(req, res) => {
     const user = await User.findOne({ email: req.body.to })
@@ -211,7 +220,8 @@ async function signup(req, res) {
         await user.save();
         emailUser = email;
         sendEmail(req, res);
-        return res.status(200).json({ message: 'Registro exitoso, se ha enviado un correo a tu direccion de correo electrónico para continuar con la verificacion', number: 1 });
+        //console.log('nel');
+        //return res.status(200).json({ message: 'Registro exitoso, se ha enviado un correo a tu direccion de correo electrónico para continuar con la verificacion', number: 1 });
         /*
         //* Se crea el token 
         const token = jwt.sign({ id: user.id }, config.secret, {
