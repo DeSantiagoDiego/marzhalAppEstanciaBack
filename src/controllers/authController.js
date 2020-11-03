@@ -520,7 +520,21 @@ router.post('/block', async(req, res) => {
 });
 
 //Peticion para verificar si el login está bloqueado
-router.get('/checkLogin', async(req, res) => {
+router.post('/checkLogin', async(req, res) => {
+    const block = await Blocks.findOne({ idDevice: req.body.idDevice })
+    if (!block) {
+        //Login No Bloqueado
+        res.json({ number: 1 });
+    } else {
+        if (block.time === null || block.time <= 0) {
+            //Login Ya Desbloqueado
+            res.json({ number: 1 });
+        } else {
+            //Login Ya Bloqueado
+            res.json({ number: 2, time: block.time, idAccess: block.idDevice });
+        }
+    }
+    /*
     Blocks.find().exec((error, blocks) => {
         if (!error) {
             if (blocks.length === 1 & blocks[0].time === null) {
@@ -534,10 +548,26 @@ router.get('/checkLogin', async(req, res) => {
             res.status(500).json(error);
         }
     });
+    */
 });
 
 //Peticion para bloquear el login
 router.post('/blockLogin', async(req, res) => {
+    const block = await Blocks.findOne({ idDevice: req.body.idDevice })
+    if (!block) {
+        const block = new Blocks({
+            time: req.body.time,
+            idDevice: req.body.idDevice
+        });
+        block.save();
+        res.json(block.time);
+    } else {
+        block.time = req.body.time
+        block.idDevice = req.body.idDevice
+        block.save();
+        res.json(block)
+    }
+    /*
     Blocks.find().exec((error, blocks) => {
         if (!error) {
             //console.log(blocks.length);
