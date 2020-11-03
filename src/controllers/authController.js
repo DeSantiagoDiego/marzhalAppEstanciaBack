@@ -1,5 +1,6 @@
 const { Router } = require('express');
 const router = Router();
+const ses = require('./ses.js');
 
 var nodemailer = require("nodemailer");
 const User = require('../models/User');
@@ -17,14 +18,14 @@ router.get('/', function(req, res) {
     res.json('Bienvenido');
 });
 
-var smtpTransport = nodemailer.createTransport({
-    port: 587,
-    service: "Gmail",
-    auth: {
-        user: "marzhalid@gmail.com",
-        pass: "agropecuario28"
-    }
-});
+// var smtpTransport = nodemailer.createTransport({
+//     port: 587,
+//     service: "Gmail",
+//     auth: {
+//         user: "marzhalid@gmail.com",
+//         pass: "agropecuario28"
+//     }
+// });
 
 var rand, mailOptions, host, link, emailUser
 
@@ -57,23 +58,32 @@ function sendEmail(req, res) {
     //host = "localhost:3000";
     console.log("Esto deberia funcionar: " + host);
     link = "http://" + host + "/api/auth/verify?id=" + rand;
-    console.log(link);
+    // console.log(link);
     mailOptions = {
         to: emailUser,
         subject: "Por favor confirma tu cuenta",
         html: "Hola,<br> Por favor haz click en el link para verificar tu cuenta.<br><a href=" + link + ">Click para verificar</a>"
     }
-    console.log(mailOptions);
-    smtpTransport.sendMail(mailOptions, function(error, response) {
-        if (error) {
-            registerError(req, res);
-            return res.json({ message: "Hubo un problema al momento de enviar el correo de verificacion, intentelo denuevo." });
-        } else {
-            console.log("Mensaje enviado: " + response.message);
-            //res.end("enviado");
-            return res.status(200).json({ message: 'Registro exitoso, se ha enviado un correo a tu direccion de correo electrónico para continuar con la verificacion', number: 1 });
-        }
+    // console.log(mailOptions);
+    ses.sendEmail(emailUser,"Por favor confirma tu cuenta","Hola,<br> Por favor haz click en el link para verificar tu cuenta.<br><a href=" + link + ">Click para verificar</a>").then(data=>{
+        // console.log("Mensaje enviado: " + response.message);
+        //res.end("enviado");
+        return res.status(200).json({ message: 'Registro exitoso, se ha enviado un correo a tu direccion de correo electrónico para continuar con la verificacion', number: 1 });
+    }).catch((err)=>{
+        console.log(err);
+        registerError(req, res);
+        return res.json({ message: "Hubo un problema al momento de enviar el correo de verificacion, intentelo denuevo." });
     });
+    // smtpTransport.sendMail(mailOptions, function(error, response) {
+    //     if (error) {
+    //         registerError(req, res);
+    //         return res.json({ message: "Hubo un problema al momento de enviar el correo de verificacion, intentelo denuevo." });
+    //     } else {
+    //         console.log("Mensaje enviado: " + response.message);
+    //         //res.end("enviado");
+    //         return res.status(200).json({ message: 'Registro exitoso, se ha enviado un correo a tu direccion de correo electrónico para continuar con la verificacion', number: 1 });
+    //     }
+    // });
 };
 
 async function registerError(req, res) {
@@ -102,16 +112,24 @@ router.post('/sendChangePass', async(req, res) => {
         html: "Hola,<br> Por favor haz click en el link para asignar nueva contraseña.<br><a href=" + link + ">Click para verificar</a>"
     }
     console.log(mailOptions);
-    smtpTransport.sendMail(mailOptions, function(error, response) {
-        if (error) {
-            console.log(error);
-            return res.json({ message: 'Hubo un problema al enviar el correo, intentelo de nuevo', number: 3 });
-        } else {
-            console.log("Mensaje enviado: " + response.message);
-            //res.end("Enviado");
-            return res.status(200).json({ message: 'Se ha enviado un correo a <strong> ' + to + '</strong>, verifiquelo para confirmar el cambio de contraseña', number: 1 });
-        }
+    ses.sendEmail(to,"Recuperar contraseña","Hola,<br> Por favor haz click en el link para asignar nueva contraseña.<br><a href=" + link + ">Click para verificar</a>").then(data=>{
+        console.log("Mensaje enviado: " + response.message);
+        //res.end("Enviado");
+        return res.status(200).json({ message: 'Se ha enviado un correo a <strong> ' + to + '</strong>, verifiquelo para confirmar el cambio de contraseña', number: 1 });
+    }).catch((err)=>{
+        console.log(error);
+        return res.json({ message: 'Hubo un problema al enviar el correo, intentelo de nuevo', number: 3 });
     });
+    // smtpTransport.sendMail(mailOptions, function(error, response) {
+    //     if (error) {
+    //         console.log(error);
+    //         return res.json({ message: 'Hubo un problema al enviar el correo, intentelo de nuevo', number: 3 });
+    //     } else {
+    //         console.log("Mensaje enviado: " + response.message);
+    //         //res.end("Enviado");
+    //         return res.status(200).json({ message: 'Se ha enviado un correo a <strong> ' + to + '</strong>, verifiquelo para confirmar el cambio de contraseña', number: 1 });
+    //     }
+    // });
 });
 //Peticion para verificar por correo la verificacion de la cuenta
 router.get('/verify', function(req, res) {
@@ -623,16 +641,24 @@ router.post('/userSendByAlert', async(req, res) => {
         html: "El usuario con el correo: " + user.email + " dice:<br><i>" + req.body.message + ".</i><br>"
     }
     console.log(mailOptions);
-    smtpTransport.sendMail(mailOptions, function(error, response) {
-        if (error) {
-            console.log(error);
-            return res.json({ header: 'ERROR!', message: 'Hubo un problema al enviar la alerta, intentelo de nuevo.', number: 2 });
-        } else {
-            console.log("Mensaje enviado: " + response.message);
+    ses.sendEmail( 'marzhalid@gmail.com',"ALERTA - " + user.email,"El usuario con el correo: " + user.email + " dice:<br><i>" + req.body.message + ".</i><br>").then(data=>{
+        console.log("Mensaje enviado: " + response.message);
             //res.end("Enviado");
             return res.status(200).json({ header: 'ALERTA ENVIADA', message: 'En breve recibirás apoyo por parte de nuestro equipo.', number: 1 });
-        }
+    }).catch((error)=>{
+        console.log(error);
+        return res.json({ header: 'ERROR!', message: 'Hubo un problema al enviar la alerta, intentelo de nuevo.', number: 2 });
     });
+    // smtpTransport.sendMail(mailOptions, function(error, response) {
+    //     if (error) {
+    //         console.log(error);
+    //         return res.json({ header: 'ERROR!', message: 'Hubo un problema al enviar la alerta, intentelo de nuevo.', number: 2 });
+    //     } else {
+    //         console.log("Mensaje enviado: " + response.message);
+    //         //res.end("Enviado");
+    //         return res.status(200).json({ header: 'ALERTA ENVIADA', message: 'En breve recibirás apoyo por parte de nuestro equipo.', number: 1 });
+    //     }
+    // });
 });
 
 router.post('/userSendToAlert', async(req, res) => {
@@ -653,15 +679,23 @@ router.post('/userSendToAlert', async(req, res) => {
         html: "Se ha enviado su alerta con el mensaje: <br><i>" + req.body.message + ".</i><br> <br>En breve recibirás apoyo por parte de nuestro equipo.<br>"
     }
     console.log(mailOptions);
-    smtpTransport.sendMail(mailOptions, function(error, response) {
-        if (error) {
-            console.log(error);
-            return res.json({ header: 'ERROR!', message: 'Hubo un problema al enviar la alerta, intentelo de nuevo.', number: 2 });
-        } else {
-            console.log("Mensaje enviado: " + response.message);
+    ses.sendEmail( user.email ,"ALERTA - " + user.email,"Se ha enviado su alerta con el mensaje: <br><i>" + req.body.message + ".</i><br> <br>En breve recibirás apoyo por parte de nuestro equipo.<br>").then(data=>{
+        console.log("Mensaje enviado: " + response.message);
             //res.end("Enviado");
             return res.status(200).json({ header: 'ALERTA ENVIADA', message: 'En breve recibirás apoyo por parte de nuestro equipo.', number: 1 });
-        }
+    }).catch((error)=>{
+        console.log(error);
+        return res.json({ header: 'ERROR!', message: 'Hubo un problema al enviar la alerta, intentelo de nuevo.', number: 2 });
     });
+    // smtpTransport.sendMail(mailOptions, function(error, response) {
+    //     if (error) {
+    //         console.log(error);
+    //         return res.json({ header: 'ERROR!', message: 'Hubo un problema al enviar la alerta, intentelo de nuevo.', number: 2 });
+    //     } else {
+    //         console.log("Mensaje enviado: " + response.message);
+    //         //res.end("Enviado");
+    //         return res.status(200).json({ header: 'ALERTA ENVIADA', message: 'En breve recibirás apoyo por parte de nuestro equipo.', number: 1 });
+    //     }
+    // });
 });
 module.exports = router;
