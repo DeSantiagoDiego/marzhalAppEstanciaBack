@@ -1,6 +1,7 @@
 const { Router } = require('express');
 const router = Router();
 const ses = require('./ses.js');
+const { uuid } = require('uuidv4');
 
 var nodemailer = require("nodemailer");
 const User = require('../models/User');
@@ -15,7 +16,8 @@ const app = require('../app');
 router.get('/', function(req, res) {
     //var fullUrl = req.protocol + '://' + req.get('host') + req.originalUrl;
     //res.json('Bienvenido : ' +fullUrl);
-    res.json('Bienvenido');
+    //console.log(uuid());
+    res.json('Bienvenido: ' + uuid());
 });
 
 // var smtpTransport = nodemailer.createTransport({
@@ -53,23 +55,28 @@ router.get('/send', function(req, res) {
 });
 */
 //Funcion para enviar correo de verificacion una vez registrada la cuenta
-function sendEmail(req, res) {
-    rand = Math.floor((Math.random() * 100) + 54);
+async function sendEmail(req, res) {
+    //rand = Math.floor((Math.random() * 100) + 54);
     //host = "localhost:3000";
+    const user = await User.findOne({ email: emailUser })
+    if (!user) {
+        //El email no existe en la base de datos
+        return res.end("<h1>error</h1>");
+    }
     console.log("Esto deberia funcionar: " + host);
-    link = "http://" + host + "/api/auth/verify?id=" + rand;
+    link = "http://" + host + "/api/auth/verify?id=" + user._id;
     // console.log(link);
     mailOptions = {
-        to: emailUser,
-        subject: "Por favor confirma tu cuenta",
-        html: "Hola,<br> Por favor haz click en el link para verificar tu cuenta.<br><a href=" + link + ">Click para verificar</a>"
-    }
-    // console.log(mailOptions);
-    ses.sendEmail(emailUser,"Por favor confirma tu cuenta","Hola,<br> Por favor haz click en el link para verificar tu cuenta.<br><a href=" + link + ">Click para verificar</a>").then(data=>{
+            to: emailUser,
+            subject: "Por favor confirma tu cuenta",
+            html: "Hola,<br> Por favor haz click en el link para verificar tu cuenta.<br><a href=" + link + ">Click para verificar</a>"
+        }
+        // console.log(mailOptions);
+    ses.sendEmail(mailOptions.to, "Por favor confirma tu cuenta", "Hola,<br> Por favor haz click en el link para verificar tu cuenta.<br><a href=" + link + ">Click para verificar</a> <br>Por su seguridad,<strong>elimine</strong> este correo una vez utilizado el link.").then(data => {
         // console.log("Mensaje enviado: " + response.message);
         //res.end("enviado");
-        return res.status(200).json({ message: 'Registro exitoso, se ha enviado un correo a tu direccion de correo electrónico para continuar con la verificacion', number: 1 });
-    }).catch((err)=>{
+        return res.status(200).json({ message: 'Registro exitoso, se ha enviado un email a tu direccion de correo electrónico para continuar con la verificacion', number: 1 });
+    }).catch((err) => {
         console.log(err);
         registerError(req, res);
         return res.json({ message: "Hubo un problema al momento de enviar el correo de verificacion, intentelo denuevo." });
@@ -103,21 +110,21 @@ router.post('/sendChangePass', async(req, res) => {
     const { to } = req.body;
     host = req.body.hostSend;
     console.log("Esto deberia funcionar: " + host);
-    rand = Math.floor((Math.random() * 100) + 54);
+    //rand = Math.floor((Math.random() * 100) + 54);
     //host = "localhost:3000";
-    link = "http://" + host + "/api/auth/changePassword?id=" + rand;
+    link = "http://" + host + "/api/auth/changePassword?id=" + user.changeRad;
     mailOptions = {
         to: to,
         subject: "Recuperar contraseña",
         html: "Hola,<br> Por favor haz click en el link para asignar nueva contraseña.<br><a href=" + link + ">Click para verificar</a>"
     }
     console.log(mailOptions);
-    ses.sendEmail(to,"Recuperar contraseña","Hola,<br> Por favor haz click en el link para asignar nueva contraseña.<br><a href=" + link + ">Click para verificar</a>").then(data=>{
-        console.log("Mensaje enviado: " + response.message);
+    ses.sendEmail(to, "Recuperar contraseña", "Hola,<br> Por favor haz click en el link para asignar nueva contraseña.<br><a href=" + link + ">Click para verificar</a> <br>Por su seguridad,<strong>elimine</strong> este correo una vez utilizado el link.").then(data => {
+        console.log("Mensaje enviado");
         //res.end("Enviado");
-        return res.status(200).json({ message: 'Se ha enviado un correo a <strong> ' + to + '</strong>, verifiquelo para confirmar el cambio de contraseña', number: 1 });
-    }).catch((err)=>{
-        console.log(error);
+        return res.status(200).json({ message: 'Se ha enviado un email a <strong> ' + to + '</strong>, verifiquelo para confirmar el cambio de contraseña', number: 1 });
+    }).catch((err) => {
+        console.log(err);
         return res.json({ message: 'Hubo un problema al enviar el correo, intentelo de nuevo', number: 3 });
     });
     // smtpTransport.sendMail(mailOptions, function(error, response) {
@@ -132,10 +139,21 @@ router.post('/sendChangePass', async(req, res) => {
     // });
 });
 //Peticion para verificar por correo la verificacion de la cuenta
-router.get('/verify', function(req, res) {
+router.get('/verify', async(req, res) => {
     console.log(req.protocol + ":/" + req.get('host'));
     if ((req.protocol + "://" + req.get('host')) == ("http://" + host)) {
         console.log("Domain is matched. Information is from Authentic email");
+        const user = await User.findOne({ _id: req.query.id })
+        if (!user) {
+            //El email no existe en la base de datos
+            console.log(req.query.id);
+            console.log("El correo aun no se ha verificado");
+            return res.end("<h1>error</h1>");
+        } else {
+            verifyCompleted(user, res)
+            res.end("<h1>Email " + user.email + " ha sido activado exitosamente. <br>Por su seguridad, elimine el correo recibido una vez utilizado este link.");
+        }
+        /*
         if (req.query.id == rand) {
             console.log(req.query.id);
             console.log("email verificado");
@@ -146,49 +164,75 @@ router.get('/verify', function(req, res) {
             console.log("El correo aun no se ha verificado");
 
             res.end("<h1>error</h1>");
-        }
+        }*/
     } else {
         res.end("<h1>peticion desconocida");
     }
 });
 //Peticion para verificar por correo la autorizacion de cambio de contraseña
-router.get('/changePassword', function(req, res) {
+router.get('/changePassword', async(req, res) => {
     console.log(req.protocol + ":/" + req.get('host'));
     if ((req.protocol + "://" + req.get('host')) == ("http://" + host)) {
         console.log("Domain is matched. Information is from Authentic email");
+        const user = await User.findOne({ changeRad: req.query.id })
+        if (!user) {
+            //El changedRad no existe en la base de datos
+            console.log("Autorizacion no concedida");
+            res.end("<h1>error</h1>");
+        } else {
+            console.log(req.query.id);
+            console.log("Contrasena renovada");
+            newPasswordChanged(user, res);
+            res.end("<h1>Autorizacion de cambio de contraseña para " + user.email + " aprobada. <br>Por su seguridad, elimine el correo recibido una vez utilizado este link.");
+        }
+        /*
         if (req.query.id == rand) {
             console.log(req.query.id);
             console.log("Contrasena renovada");
             newPasswordChanged(req, res);
-            res.end("<h1>Autorizacion de cambio de contraseña para " + mailOptions.to + " aprobada");
+            res.end("<h1>Autorizacion de cambio de contraseña para " + mailOptions.to + " aprobada. <br>Por su seguridad, elimine el correo recibido una vez usado este link.");
 
         } else {
             console.log("Autorizacion no concedida");
 
             res.end("<h1>error</h1>");
-        }
+        }*/
     } else {
         res.end("<h1>peticion desconocida");
     }
 });
 //Funcion para aprobar la cuenta como verificada
 function verifyCompleted(req, res) {
-    User.findOne({ email: mailOptions.to }).exec((error, exists) => {
+    //console.log(req);
+    User.findOne({ email: req.email }).exec((error, exists) => {
         if (!error) {
             exists.isVerified = true;
             exists.save();
         } else {
-            res.status(500).json(error);
+            res.json(error);
         }
     });
 }
 //Funcion para autorizar el cambio de contraseña
 async function newPasswordChanged(req, res) {
-    const user = await User.findOne({ email: mailOptions.to })
+    const user = await User.findOne({ email: req.email })
     if (!user) {
         return res.status(404).send("El email no existe en la base de datos.")
     }
     user.changePassword = true;
+    user.changeRad = null;
+    var foundUID = false;
+    var uidEmailUser;
+    do {
+        uidEmailUser = uuid();
+        const userUID = await User.findOne({ changeRad: uidEmailUser })
+        if (!userUID) {
+            foundUID = true;
+        } else {
+            foundUID = false;
+        }
+    } while (foundUID != true);
+    user.changeRad = uidEmailUser;
     //user.Changeassword = await user.encryptPassword(password)
     //$2a$10$jsB6sInE55HM9BZDriUVqe1/M1jJAuIKmfwvtYC3q9bvN2tCMgPlG
     await user.save();
@@ -228,11 +272,24 @@ async function signup(req, res) {
     try {
         //* Recibimos datos
         const { username, email, password } = req;
+        //*Asignamos una 
+        var foundUID = false;
+        var uidEmailUser;
+        do {
+            uidEmailUser = uuid();
+            const userUID = await User.findOne({ changeRad: uidEmailUser })
+            if (!userUID) {
+                foundUID = true;
+            } else {
+                foundUID = false;
+            }
+        } while (foundUID != true);
         //* Creamos un nuevo usuario
         const user = new User({
             username,
             email,
-            password
+            password,
+            changeRad: uidEmailUser
         });
         user.password = await user.encryptPassword(password);
         await user.save();
@@ -425,21 +482,30 @@ router.post('/userTryFailed', async(req, res) => {
     }
     console.log(req.body.to);
     mailOptions = {
-        to: req.body.to,
+        to: user.email,
         subject: "Alerta de cuenta",
         html: "Hola,<br> Alguien ha intendo ingresar a tu cuenta numerosas veces, te recomendamos verificarlo y cambiar la contraseña<br>"
     }
     console.log(mailOptions);
-    smtpTransport.sendMail(mailOptions, function(error, response) {
+    ses.sendEmail(user.email, "Alerta de cuenta", "Hola,<br> Alguien ha intendo ingresar a tu cuenta numerosas veces, te recomendamos verificarlo y cambiar la contraseña<br>").then(data => {
+        console.log("Mensaje enviado");
+        //res.end("Enviado");
+        return res.status(200).json({ message: 'Alerta enviada' });
+    }).catch((error) => {
+        console.log(error);
+        return res.json('error');
+    });
+
+    /*smtpTransport.sendMail(mailOptions, function(error, response) {
         if (error) {
             console.log(error);
             res.status(500).send('error');
         } else {
-            console.log("Mensaje enviado: " + response.message);
+            console.log("Mensaje enviado");
             //res.end("Enviado");
             return res.status(200).json({ message: 'Alerta enviada' });
         }
-    });
+    });*/
 });
 
 //Peticion de prueba para ver los bloqueos
@@ -636,16 +702,17 @@ router.post('/userSendByAlert', async(req, res) => {
     //host = "localhost:3000";
     //link = "http://" + host + "/api/auth/changePassword?id=" + rand;
     mailOptions = {
-        to: 'marzhalid@gmail.com',
+        //to: 'marzhalid@gmail.com',
+        to: 'fakturor@fakturor.com.mx',
         subject: "ALERTA - " + user.email,
         html: "El usuario con el correo: " + user.email + " dice:<br><i>" + req.body.message + ".</i><br>"
     }
     console.log(mailOptions);
-    ses.sendEmail( 'marzhalid@gmail.com',"ALERTA - " + user.email,"El usuario con el correo: " + user.email + " dice:<br><i>" + req.body.message + ".</i><br>").then(data=>{
-        console.log("Mensaje enviado: " + response.message);
-            //res.end("Enviado");
-            return res.status(200).json({ header: 'ALERTA ENVIADA', message: 'En breve recibirás apoyo por parte de nuestro equipo.', number: 1 });
-    }).catch((error)=>{
+    ses.sendEmail(mailOptions.to, "ALERTA - " + user.email, "El usuario con el correo: " + user.email + " dice:<br><i>" + req.body.message + ".</i><br>").then(data => {
+        console.log("Mensaje enviado");
+        //res.end("Enviado");
+        return res.status(200).json({ header: 'ALERTA ENVIADA', message: 'En breve recibirás apoyo por parte de nuestro equipo.', number: 1 });
+    }).catch((error) => {
         console.log(error);
         return res.json({ header: 'ERROR!', message: 'Hubo un problema al enviar la alerta, intentelo de nuevo.', number: 2 });
     });
@@ -679,11 +746,11 @@ router.post('/userSendToAlert', async(req, res) => {
         html: "Se ha enviado su alerta con el mensaje: <br><i>" + req.body.message + ".</i><br> <br>En breve recibirás apoyo por parte de nuestro equipo.<br>"
     }
     console.log(mailOptions);
-    ses.sendEmail( user.email ,"ALERTA - " + user.email,"Se ha enviado su alerta con el mensaje: <br><i>" + req.body.message + ".</i><br> <br>En breve recibirás apoyo por parte de nuestro equipo.<br>").then(data=>{
-        console.log("Mensaje enviado: " + response.message);
-            //res.end("Enviado");
-            return res.status(200).json({ header: 'ALERTA ENVIADA', message: 'En breve recibirás apoyo por parte de nuestro equipo.', number: 1 });
-    }).catch((error)=>{
+    ses.sendEmail(user.email, "ALERTA - " + user.email, "Se ha enviado su alerta con el mensaje: <br><i>" + req.body.message + ".</i><br> <br>En breve recibirás apoyo por parte de nuestro equipo.<br>").then(data => {
+        console.log("Mensaje enviado");
+        //res.end("Enviado");
+        return res.status(200).json({ header: 'ALERTA ENVIADA', message: 'En breve recibirás apoyo por parte de nuestro equipo.', number: 1 });
+    }).catch((error) => {
         console.log(error);
         return res.json({ header: 'ERROR!', message: 'Hubo un problema al enviar la alerta, intentelo de nuevo.', number: 2 });
     });

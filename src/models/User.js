@@ -6,7 +6,8 @@ const userSchema = new Schema({
     email: String,
     password: String,
     isVerified: { type: Boolean, default: false },
-    changePassword: { type: Boolean, default: false }
+    changePassword: { type: Boolean, default: false },
+    changeRad: String
 });
 
 userSchema.methods.encryptPassword = async(password) => {
