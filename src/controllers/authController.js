@@ -672,9 +672,10 @@ router.post('/readPassword', async(req, res) => {
     console.log(req.userId);
     const userPasswords = await Passwords.find({ userId: req.userId })
     if (!userPasswords | userPasswords.length == 0) {
-        return res.json({ message: "Este usuario no ha generado contraseñas" });
+        return res.json({ message: "Este usuario no ha generado contraseñas", number: 1 });
     }
-    res.json(userPasswords);
+    console.log(userPasswords);
+    res.json({ userPasswords, number: 2 });
 });
 
 //Peticion para borrar una contraseña (Eliminar)
