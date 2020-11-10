@@ -21,7 +21,6 @@ router.get('/', function(req, res) {
     //res.json('Bienvenido : ' +fullUrl);
     //console.log(uuid());
     //res.json('Bienvenido: ' + uuid());
-    res.send(__dirname);
     res.end("<body><img src='../D3.SVG'  alt='' style='padding-top: 25%; padding-bottom: 2%; display: block; margin-left: auto; margin-right: auto;'></body>");
 });
 
@@ -156,8 +155,8 @@ router.get('/verify', async(req, res) => {
             return res.end("<h1>error</h1>");
         } else {
             verifyCompleted(user, res)
-                //res.end("<h1 style='color: red;' >Email " + user.email + " ha sido activado exitosamente. <br>Por su seguridad, elimine el correo recibido una vez utilizado este link.");
-            res.end("<body style='background: black;'><div style='padding-top: 25%;'><h1 style='color: white; text-align: center;'>Email " + user.email + " ha sido activado exitosamente. <br></h1><h1 style='color: orange;text-align: center';>Por su seguridad, elimine el correo recibido una vez utilizado este link.</h1></div></body>");
+                //res.end("<h1 style='color: red;' >Email " + user.email + " ha sido activado exitosamente.<br>Por su seguridad, elimine el correo recibido una vez utilizado este link.");
+            res.end("<body style='background: black;'><div ><img src='/../D3.SVG'  alt='' style='padding-top: 15%; padding-bottom: 2%; display: block; margin-left: auto; margin-right: auto;'><img src='/marzhalId2.svg' alt='' style='padding-bottom: 5%; display: block; margin-left: auto; margin-right: auto;'><h1 style='color: white; text-align: center;'>Email " + user.email + " ha sido activado exitosamente.<br></h1><h1 style='color: orange;text-align: center';>Por su seguridad, elimine el correo recibido una vez utilizado este link.</h1></div><h6 style='color: whitesmoke; font-size: 68%;text-align: center;padding-top: 3%;'>CYBERSECURITY EXPERTS</h6></body>");
         }
         /*
         if (req.query.id == rand) {
@@ -190,7 +189,7 @@ router.get('/changePassword', async(req, res) => {
             console.log("Contrasena renovada");
             newPasswordChanged(user, res);
             //res.end("<h1>Autorizacion de cambio de contraseña para " + user.email + " aprobada. <br>Por su seguridad, elimine el correo recibido una vez utilizado este link.");
-            res.end("<body style='background: black;'><div style='padding-top: 25%;'><img src='.../D3.SVG'  alt='' style='padding-top: 25%; padding-bottom: 2%; display: block; margin-left: auto; margin-right: auto;'><img src='./marzhalId2.svg' alt='' style='padding-bottom: 5%; display: block; margin-left: auto; margin-right: auto;'><h1 style='color: white; text-align: center;'>Autorizacion de cambio de contraseña para " + user.email + " aprobada. <br></h1><h1 style='color: orange;text-align: center';>Por su seguridad, elimine el correo recibido una vez utilizado este link.</h1></div></body>");
+            res.end("<body style='background: black;'><div ><img src='/../D3.SVG'  alt='' style='padding-top: 15%; padding-bottom: 2%; display: block; margin-left: auto; margin-right: auto;'><img src='/marzhalId2.svg' alt='' style='padding-bottom: 5%; display: block; margin-left: auto; margin-right: auto;'><h1 style='color: white; text-align: center;'>Autorizacion de cambio de contraseña para " + user.email + " aprobada. <br></h1><h1 style='color: orange;text-align: center';>Por su seguridad, elimine el correo recibido una vez utilizado este link.</h1></div><h6 style='color: whitesmoke; font-size: 68%;text-align: center;padding-top: 3%;'>CYBERSECURITY EXPERTS</h6></body>");
         }
         /*
         if (req.query.id == rand) {
